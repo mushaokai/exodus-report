@@ -1,0 +1,54 @@
+name: daily-report
+
+on:
+  schedule:
+    - cron: "10 1 * * *"   # 01:10 UTC = 08:10 น. ไทย (GitHub อาจหน่วงได้ ~หลักนาที)
+  workflow_dispatch: {}     # กดรันเองได้จากหน้า Actions
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  report:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: pip install requests
+
+      - name: Build report (fetch Page365)
+        run: python report_cloud.py
+        env:
+          PAGE365_COOKIE: ${{ secrets.PAGE365_COOKIE }}
+          TG_TOKEN: ${{ secrets.TG_TOKEN }}
+          TG_CHAT: ${{ secrets.TG_CHAT }}
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: public
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
+
+      - name: Send Telegram summary + link
+        run: python send_telegram.py
+        env:
+          TG_TOKEN: ${{ secrets.TG_TOKEN }}
+          TG_CHAT: ${{ secrets.TG_CHAT }}
+          PUBLIC_URL: ${{ steps.deployment.outputs.page_url }}
