@@ -2,20 +2,56 @@ name: daily-report
 
 on:
   schedule:
-    - cron: "10 1 * * *"   # 01:10 UTC = 08:10 น. ไทย (GitHub อาจหน่วงได้ ~หลักนาที)
-  workflow_dispatch: {}     # กดรันเองได้จากหน้า Actions
+    # 00:17 UTC = 07:17 น. ไทย — GitHub หน่วงคิว schedule ของ repo สาธารณะได้หลายชั่วโมง (ที่ผ่านมา ~5-6 ชม.)
+    # ตัวจุดชนวนหลักคือ launchd บน Mac (com.exodus.cloud-report-trigger) ที่สั่ง workflow_dispatch ตอน 08:10
+    # cron นี้เป็นตัวสำรองกรณี Mac ปิดอยู่ — ถ้าวันนี้ส่งไปแล้ว job guard จะข้ามให้ ไม่ส่งซ้ำ
+    - cron: "17 0 * * *"
+  workflow_dispatch: {}     # กดรันเองได้จากหน้า Actions / gh workflow run
 
 permissions:
   contents: read
   pages: write
   id-token: write
+  actions: write            # guard อ่านประวัติ run + keepalive กัน GitHub ปิด schedule อัตโนมัติ (60 วันไม่มี commit)
 
 concurrency:
   group: pages
   cancel-in-progress: false
 
 jobs:
+  guard:
+    runs-on: ubuntu-latest
+    outputs:
+      skip: ${{ steps.check.outputs.skip }}
+    steps:
+      - name: Skip if today's report (Bangkok date) already sent
+        id: check
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          today=$(TZ=Asia/Bangkok date +%F)
+          last=$(gh run list -R "$GITHUB_REPOSITORY" --workflow daily.yml --status success --limit 1 \
+                   --json createdAt --jq '.[0].createdAt // empty')
+          last_bkk=""
+          if [ -n "$last" ]; then
+            last_bkk=$(TZ=Asia/Bangkok date -d "$last" +%F)
+          fi
+          echo "today=$today last_success=$last ($last_bkk)"
+          if [ "$last_bkk" = "$today" ]; then
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            echo "::notice::ส่งรายงานของวันนี้ไปแล้ว ($last) — ข้ามรอบนี้"
+          else
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Keepalive (prevent 60-day auto-disable of scheduled workflow)
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh api -X PUT "/repos/$GITHUB_REPOSITORY/actions/workflows/daily.yml/enable"
+
   report:
+    needs: guard
+    if: needs.guard.outputs.skip != 'true'
     runs-on: ubuntu-latest
     environment:
       name: github-pages

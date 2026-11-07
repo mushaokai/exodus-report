@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.exodus.cloud-report-trigger</string>
+    <key>ProgramArguments</key>
+    <array>
+        <string>/bin/bash</string>
+        <string>/Users/exodusshop/ads_check/cloud_report/trigger_from_mac.sh</string>
+    </array>
+    <key>WorkingDirectory</key>
+    <string>/Users/exodusshop/ads_check/cloud_report</string>
+    <!-- สั่ง GitHub รันรายงานเฉลี่ย 7 วัน ตอน 08:10 น. (cron ของ GitHub เองหน่วง 5-6 ชม.) -->
+    <key>StartCalendarInterval</key>
+    <dict><key>Hour</key><integer>8</integer><key>Minute</key><integer>10</integer></dict>
+    <key>RunAtLoad</key>
+    <false/>
+    <key>StandardOutPath</key>
+    <string>/Users/exodusshop/ads_check/reports/cloud_report_trigger.log</string>
+    <key>StandardErrorPath</key>
+    <string>/Users/exodusshop/ads_check/reports/cloud_report_trigger.log</string>
+</dict>
+</plist>
